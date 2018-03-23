@@ -1,10 +1,22 @@
 from flask import Flask, request, redirect, jsonify
 import os
 from werkzeug.utils import secure_filename
+from flask_uploads import UploadSet, configure_uploads, IMAGES, TEXT, DOCUMENTS, DATA
 
+main_path = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = "uploads"
+
+# Define an upload set of allowed extensions
+data_files = UploadSet('data', TEXT+DOCUMENTS+DATA)
+
+# define where the files will be updated to.  The name in UploadSet, data in this case,
+# is part of the key name in the app.config. This is how it matches an upload directory
+# with an UploadSet
+app.config['UPLOADED_DATA_DEST'] = os.path.join(main_path, "uploads")
+
+# configure the uploads extension
+configure_uploads(app, data_files)
 
 
 @app.route("/")
@@ -12,11 +24,11 @@ def index():
     return redirect("/static/index.html")
 
 
-@app.route("/sendfile", methods=["POST"])
-def send_file():
+@app.route("/sendfile_orig", methods=["POST"])
+def send_file_orig():
     fileob = request.files["file2upload"]
     filename = secure_filename(fileob.filename)
-    save_path = "{}/{}".format(app.config["UPLOAD_FOLDER"], filename)
+    save_path = "./{}/{}".format(app.config["UPLOAD_FOLDER"], filename)
     fileob.save(save_path)
 
     # open and close to update the access time.
@@ -25,10 +37,16 @@ def send_file():
 
     return "successful_upload"
 
+@app.route("/sendfile", methods=["POST"])
+def send_file():
+    fileob = request.files["file2upload"]
+    saved_filename = data_files.save(fileob)
+
+    return f"successful_upload: {saved_filename}"
 
 @app.route("/filenames", methods=["GET"])
 def get_filenames():
-    filenames = os.listdir("uploads/")
+    filenames = os.listdir(app.config["UPLOAD_FOLDER"])
 
     #modify_time_sort = lambda f: os.stat("uploads/{}".format(f)).st_atime
 
